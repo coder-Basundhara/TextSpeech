@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, MicOff, Plus, Square } from "lucide-react";
+import { Mic, Plus, Square } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface SpeechToTextProps {
@@ -10,32 +10,37 @@ interface SpeechToTextProps {
   setIsRecording: (recording: boolean) => void;
 }
 
-export const SpeechToText = ({ onAddNote, isRecording, setIsRecording }: SpeechToTextProps) => {
+export const SpeechToText = ({
+  onAddNote,
+  isRecording,
+  setIsRecording,
+}: SpeechToTextProps) => {
   const [transcript, setTranscript] = useState("");
   const [isSupported, setIsSupported] = useState(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const finalTranscriptRef = useRef("");
+  const finalResultsSet = useRef(new Set<string>()); // To track unique final results
 
   const startRecording = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
       setIsSupported(false);
       toast({
         title: "Speech Recognition Not Supported",
         description: "Your browser doesn't support speech recognition. Please try Chrome or Edge.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    
+
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = "en-US";
 
-    // Reset the final transcript when starting
     finalTranscriptRef.current = "";
+    finalResultsSet.current.clear(); // clear old results
 
     recognition.onstart = () => {
       setIsRecording(true);
@@ -46,34 +51,37 @@ export const SpeechToText = ({ onAddNote, isRecording, setIsRecording }: SpeechT
     };
 
     recognition.onresult = (event) => {
-      let interimTranscript = '';
+      let interimTranscript = "";
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscriptRef.current += transcript + ' ';
+        const result = event.results[i];
+        const resultTranscript = result[0].transcript.trim();
+
+        if (result.isFinal) {
+          if (!finalResultsSet.current.has(resultTranscript)) {
+            finalResultsSet.current.add(resultTranscript);
+            finalTranscriptRef.current += resultTranscript + " ";
+          }
         } else {
-          interimTranscript += transcript;
+          interimTranscript += resultTranscript + " ";
         }
       }
 
-      // Update the display with final + interim results
       setTranscript(finalTranscriptRef.current + interimTranscript);
     };
 
     recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
+      console.error("Speech recognition error:", event.error);
       setIsRecording(false);
       toast({
         title: "Recording Error",
         description: "There was an error with speech recognition. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     };
 
     recognition.onend = () => {
       setIsRecording(false);
-      // Set the final transcript when recording ends
       setTranscript(finalTranscriptRef.current.trim());
     };
 
@@ -97,6 +105,7 @@ export const SpeechToText = ({ onAddNote, isRecording, setIsRecording }: SpeechT
       onAddNote(transcript.trim());
       setTranscript("");
       finalTranscriptRef.current = "";
+      finalResultsSet.current.clear();
       toast({
         title: "Note Added!",
         description: "Your note has been saved successfully.",
@@ -107,6 +116,7 @@ export const SpeechToText = ({ onAddNote, isRecording, setIsRecording }: SpeechT
   const clearTranscript = () => {
     setTranscript("");
     finalTranscriptRef.current = "";
+    finalResultsSet.current.clear();
   };
 
   if (!isSupported) {
@@ -125,8 +135,8 @@ export const SpeechToText = ({ onAddNote, isRecording, setIsRecording }: SpeechT
         <Button
           onClick={isRecording ? stopRecording : startRecording}
           className={`px-8 py-4 rounded-full text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg ${
-            isRecording 
-              ? "bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 animate-pulse" 
+            isRecording
+              ? "bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 animate-pulse"
               : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
           }`}
         >
@@ -170,7 +180,7 @@ export const SpeechToText = ({ onAddNote, isRecording, setIsRecording }: SpeechT
             <Plus className="h-5 w-5 mr-2" />
             Add Note
           </Button>
-          
+
           <Button
             onClick={clearTranscript}
             variant="outline"
