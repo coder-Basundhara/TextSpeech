@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, Plus, Square } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import md5 from "md5"; // ✅ Hashing library to avoid duplicate results
 
 interface SpeechToTextProps {
   onAddNote: (content: string) => void;
@@ -19,7 +20,7 @@ export const SpeechToText = ({
   const [isSupported, setIsSupported] = useState(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const finalTranscriptRef = useRef("");
-  const finalResultsSet = useRef(new Set<string>());
+  const finalResultsHashSet = useRef(new Set<string>());
 
   const startRecording = () => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
@@ -40,7 +41,7 @@ export const SpeechToText = ({
     recognition.lang = "en-US";
 
     finalTranscriptRef.current = "";
-    finalResultsSet.current.clear();
+    finalResultsHashSet.current.clear();
 
     recognition.onstart = () => {
       setIsRecording(true);
@@ -56,15 +57,11 @@ export const SpeechToText = ({
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const resultTranscript = result[0].transcript.trim();
+        const resultHash = md5(resultTranscript.toLowerCase());
 
         if (result.isFinal) {
-          // Enhanced duplicate prevention
-          const alreadyAdded =
-            finalTranscriptRef.current.endsWith(resultTranscript + " ") ||
-            finalResultsSet.current.has(resultTranscript);
-
-          if (!alreadyAdded) {
-            finalResultsSet.current.add(resultTranscript);
+          if (!finalResultsHashSet.current.has(resultHash)) {
+            finalResultsHashSet.current.add(resultHash);
             finalTranscriptRef.current += resultTranscript + " ";
           }
         } else {
@@ -110,7 +107,7 @@ export const SpeechToText = ({
       onAddNote(transcript.trim());
       setTranscript("");
       finalTranscriptRef.current = "";
-      finalResultsSet.current.clear();
+      finalResultsHashSet.current.clear();
       toast({
         title: "Note Added!",
         description: "Your note has been saved successfully.",
@@ -121,7 +118,7 @@ export const SpeechToText = ({
   const clearTranscript = () => {
     setTranscript("");
     finalTranscriptRef.current = "";
-    finalResultsSet.current.clear();
+    finalResultsHashSet.current.clear();
   };
 
   if (!isSupported) {
