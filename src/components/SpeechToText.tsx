@@ -19,7 +19,7 @@ export const SpeechToText = ({
   const [isSupported, setIsSupported] = useState(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const finalTranscriptRef = useRef("");
-  const finalResultsSet = useRef(new Set<string>()); // To track unique final results
+  const finalResultsSet = useRef(new Set<string>());
 
   const startRecording = () => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
@@ -40,7 +40,7 @@ export const SpeechToText = ({
     recognition.lang = "en-US";
 
     finalTranscriptRef.current = "";
-    finalResultsSet.current.clear(); // clear old results
+    finalResultsSet.current.clear();
 
     recognition.onstart = () => {
       setIsRecording(true);
@@ -58,7 +58,12 @@ export const SpeechToText = ({
         const resultTranscript = result[0].transcript.trim();
 
         if (result.isFinal) {
-          if (!finalResultsSet.current.has(resultTranscript)) {
+          // Enhanced duplicate prevention
+          const alreadyAdded =
+            finalTranscriptRef.current.endsWith(resultTranscript + " ") ||
+            finalResultsSet.current.has(resultTranscript);
+
+          if (!alreadyAdded) {
             finalResultsSet.current.add(resultTranscript);
             finalTranscriptRef.current += resultTranscript + " ";
           }
